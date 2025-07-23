@@ -40,6 +40,7 @@ async function run() {
         // await client.connect()
         const database = client.db('PetLink')
         const usersCollection = database.collection('users')
+        const petsCollection = database.collection('pets')
 
 
 
@@ -75,6 +76,15 @@ async function run() {
 
             user.role = 'user'
             const result = await usersCollection.insertOne(user);
+            res.send(result)
+        })
+
+
+        
+
+        app.post('/pets', async (req, res)=>{
+            const petData = req.body
+            const result = await petsCollection.insertOne(petData)
             res.send(result)
         })
 
