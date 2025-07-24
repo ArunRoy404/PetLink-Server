@@ -49,14 +49,15 @@ async function run() {
             const firebaseToken = authorization
 
             if (!firebaseToken) {
-                res.status(401).send({ message: "Unauthorized Access" })
+                return res.status(401).send({ message: "Unauthorized Access" })
             }
+
             try {
                 const tokenUser = await admin.auth().verifyIdToken(firebaseToken)
                 req.tokenUser = tokenUser
                 next()
             } catch (error) {
-                res.status(401).send({ message: "Invalid Token", error })
+                return res.status(401).send({ message: "Invalid Token", error })
             }
         }
 
@@ -80,13 +81,60 @@ async function run() {
         })
 
 
-        
 
-        app.post('/pets', async (req, res)=>{
+
+        app.post('/pets', async (req, res) => {
             const petData = req.body
+            petData.adopted = false
+            petData.addTime = new Date().toLocaleString()
+
             const result = await petsCollection.insertOne(petData)
             res.send(result)
         })
+
+
+        app.get('/pets-count', verifyFirebase, async (req, res) => {
+            const result = await petsCollection.countDocuments()
+            res.send(result)
+        })
+
+        app.get('/pets', async (req, res) => {
+            const result = await petsCollection.find().toArray()
+            res.send(result)
+        })
+
+        app.get('/pet/:id', async (req, res) => {
+            const id = req.params.id
+            const query = { _id: new ObjectId(id) }
+            const result = await petsCollection.findOne(query)
+            res.send(result)
+        })
+
+
+
+
+
+        app.get('/my-added-pets-count', verifyFirebase, async (req, res) => {
+            const email = req.tokenUser.email
+            const query = { addedBy: email }
+            const result = await petsCollection.countDocuments(query)
+            res.send(result)
+        })
+        app.get('/my-added-pets', verifyFirebase, async (req, res) => {
+            const page = parseInt(req.query.page)
+            const size = parseInt(req.query.size)
+
+            const email = req.tokenUser.email
+            const query = { addedBy: email }
+
+            const result = await petsCollection.find(query)
+                .skip(page * size)
+                .limit(size)
+                .toArray()
+            res.send(result)
+
+        })
+
 
 
 
