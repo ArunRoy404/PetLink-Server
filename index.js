@@ -41,6 +41,7 @@ async function run() {
         const database = client.db('PetLink')
         const usersCollection = database.collection('users')
         const petsCollection = database.collection('pets')
+        const campaignsCollection = database.collection('Campaigns')
 
 
 
@@ -150,6 +151,23 @@ async function run() {
                 .toArray()
             res.send(result)
 
+        })
+
+
+
+
+
+
+        app.get('/campaigns', async (req, res) => {
+            const result = await campaignsCollection.find().toArray()
+            res.send(result)
+        })
+
+
+        app.post('/campaigns', verifyFirebase, async (req, res) => {
+            const petData = req.body
+            const result = await campaignsCollection.insertOne(petData)
+            res.send(result)
         })
 
 
