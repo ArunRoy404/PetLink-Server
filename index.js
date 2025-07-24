@@ -192,6 +192,18 @@ async function run() {
             res.send(result)
         })
 
+        app.put('/campaigns', verifyFirebase, async (req, res) => {
+            const addedBy = req.tokenUser.email
+            const { _id, ...campaignData } = req.body.data.campaignData
+            console.log(campaignData);
+            const query = { _id: new ObjectId(_id), addedBy }
+            const update = { $set: campaignData }
+            const option = { upsert: true }
+
+            const result = await campaignsCollection.updateOne(query, update, option)
+            res.send(result)
+        })
+
 
 
 
