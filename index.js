@@ -110,6 +110,13 @@ async function run() {
             res.send(result)
         })
 
+        app.delete('/pets', verifyFirebase, async (req, res) => {
+            const addedBy = req.tokenUser.email
+            const petId = req.body.petId
+            const query = { _id: new ObjectId(petId), addedBy }
+            const result = await petsCollection.deleteOne(query)
+            res.send(result)
+        })
 
 
 
