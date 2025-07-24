@@ -117,6 +117,16 @@ async function run() {
             const result = await petsCollection.deleteOne(query)
             res.send(result)
         })
+        app.put('/pets', verifyFirebase, async (req, res) => {
+            const addedBy = req.tokenUser.email
+            const { _id, ...petData } = req.body.data.petData
+            const query = { _id: new ObjectId(_id), addedBy }
+            const update = { $set: petData }
+            const option = { upsert: true }
+
+            const result = await petsCollection.updateOne(query, update, option)
+            res.send(result)
+        })
 
 
 
