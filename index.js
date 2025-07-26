@@ -62,6 +62,15 @@ async function run() {
             }
         }
 
+
+
+
+
+        app.get('/users-count', async (req, res) => {
+            const result = await usersCollection.estimatedDocumentCount()
+            res.send(result)
+        })
+
         app.get('/users/:email', async (req, res) => {
             const email = req.params.email
             const result = await usersCollection.findOne({ email })
@@ -77,9 +86,35 @@ async function run() {
             }
 
             user.role = 'user'
+            user.banned = false
             const result = await usersCollection.insertOne(user);
             res.send(result)
         })
+
+        app.put('/users', verifyFirebase, async (req, res) => {
+            const { _id, ...userData } = req.body.data.userData
+            const query = { _id: new ObjectId(_id) }
+            const update = { $set: userData }
+            const option = { upsert: true }
+
+            const result = await usersCollection.updateOne(query, update, option)
+            res.send(result)
+        })
+
+
+        app.get('/users', verifyFirebase, async (req, res) => {
+            const page = parseInt(req.query.page)
+            const size = parseInt(req.query.size)
+
+            const result = await usersCollection
+                .find()
+                .skip(page * size)
+                .limit(size)
+                .toArray()
+            res.send(result)
+        })
+
+
 
 
 
@@ -128,9 +163,6 @@ async function run() {
             const result = await petsCollection.updateOne(query, update, option)
             res.send(result)
         })
-
-
-
 
         app.get('/my-added-pets-count', verifyFirebase, async (req, res) => {
             const email = req.tokenUser.email
@@ -207,7 +239,6 @@ async function run() {
             const option = { upsert: true }
 
             const result = await campaignsCollection.updateOne(query, update, option)
-            console.log(result);
             res.send(result)
         })
 
