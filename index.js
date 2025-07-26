@@ -162,6 +162,13 @@ async function run() {
             res.send(result)
         })
 
+        app.get('/campaign/:id', async (req, res) => {
+            const id = req.params.id
+            const query = { _id: new ObjectId(id) }
+            const result = await campaignsCollection.findOne(query)
+            res.send(result)
+        })
+
 
         app.post('/campaigns', verifyFirebase, async (req, res) => {
             const petData = req.body
@@ -195,12 +202,12 @@ async function run() {
         app.put('/campaigns', verifyFirebase, async (req, res) => {
             const addedBy = req.tokenUser.email
             const { _id, ...campaignData } = req.body.data.campaignData
-            console.log(campaignData);
             const query = { _id: new ObjectId(_id), addedBy }
             const update = { $set: campaignData }
             const option = { upsert: true }
 
             const result = await campaignsCollection.updateOne(query, update, option)
+            console.log(result);
             res.send(result)
         })
 
