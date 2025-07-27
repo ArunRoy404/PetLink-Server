@@ -129,13 +129,22 @@ async function run() {
         })
 
 
-        app.get('/pets-count', verifyFirebase, async (req, res) => {
+        app.get('/pets-count', async (req, res) => {
             const result = await petsCollection.countDocuments()
             res.send(result)
         })
 
         app.get('/pets', async (req, res) => {
-            const result = await petsCollection.find().toArray()
+            const page = parseInt(req.query.page)
+            const size = parseInt(req.query.size)
+
+
+            const sortBy = { 'addTime': -1 }
+
+            const result = await petsCollection.find().sort(sortBy)
+                .skip(page * size)
+                .limit(size)
+                .toArray()
             res.send(result)
         })
 
@@ -176,8 +185,9 @@ async function run() {
 
             const email = req.tokenUser.email
             const query = { addedBy: email }
+            const sortBy = { 'addTime': -1 }
 
-            const result = await petsCollection.find(query)
+            const result = await petsCollection.find(query).sort(sortBy)
                 .skip(page * size)
                 .limit(size)
                 .toArray()
@@ -190,7 +200,15 @@ async function run() {
 
 
         app.get('/campaigns', async (req, res) => {
-            const result = await campaignsCollection.find().toArray()
+            const page = parseInt(req.query.page)
+            const size = parseInt(req.query.size)
+
+            const sortBy = { 'createdAt': -1 }
+
+            const result = await campaignsCollection.find().sort(sortBy)
+                .skip(page * size)
+                .limit(size)
+                .toArray()
             res.send(result)
         })
 
@@ -210,6 +228,10 @@ async function run() {
             res.send(result)
         })
 
+        app.get('/campaigns-count', async (req, res) => {
+            const result = await campaignsCollection.countDocuments()
+            res.send(result)
+        })
         app.get('/my-campaigns-count', verifyFirebase, async (req, res) => {
             const email = req.tokenUser.email
             const query = { addedBy: email }
