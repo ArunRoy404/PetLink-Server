@@ -122,8 +122,8 @@ async function run() {
 
         app.post('/pets', async (req, res) => {
             const petData = req.body
-            petData.adopted = false
             petData.addTime = new Date()
+            petData.adopted = false
 
             const result = await petsCollection.insertOne(petData)
             res.send(result)
@@ -142,7 +142,8 @@ async function run() {
                 const size = parseInt(req.query.size)
                 const searchTerm = req.query.search
                 const category = req.query.category
-                const sortBy = { addTime: -1 }
+                // const sortBy = { addTime: -1 }
+                const sortBy = { _id: -1 }
 
                 // Build query dynamically
                 const query = {}
@@ -246,7 +247,8 @@ async function run() {
 
             const email = req.tokenUser.email
             const query = { addedBy: email }
-            const sortBy = { 'addTime': -1 }
+            // const sortBy = { 'addTime': -1 }
+            const sortBy = { _id: -1 }
 
             const result = await petsCollection.find(query).sort(sortBy)
                 .skip(page * size)
@@ -264,7 +266,8 @@ async function run() {
             const page = parseInt(req.query.page)
             const size = parseInt(req.query.size)
 
-            const sortBy = { 'createdAt': -1 }
+            // const sortBy = { 'createdAt': -1 }
+            const sortBy = { _id: -1 }
 
             const result = await campaignsCollection.find().sort(sortBy)
                 .skip(page * size)
