@@ -42,6 +42,7 @@ async function run() {
         const usersCollection = database.collection('users')
         const petsCollection = database.collection('pets')
         const campaignsCollection = database.collection('campaigns')
+        const adoptionCollection = database.collection('adoptions')
 
 
 
@@ -122,7 +123,7 @@ async function run() {
         app.post('/pets', async (req, res) => {
             const petData = req.body
             petData.adopted = false
-            petData.addTime = new Date().toLocaleString()
+            petData.addTime = new Date()
 
             const result = await petsCollection.insertOne(petData)
             res.send(result)
@@ -321,6 +322,20 @@ async function run() {
             const option = { upsert: true }
 
             const result = await campaignsCollection.updateOne(query, update, option)
+            res.send(result)
+        })
+
+
+
+
+
+
+
+
+
+        app.post('/adoptions', async (req, res) => {
+            const adoptionData = req.body
+            const result = adoptionCollection.insertOne(adoptionData)
             res.send(result)
         })
 
