@@ -134,18 +134,78 @@ async function run() {
             res.send(result)
         })
 
+
         app.get('/pets', async (req, res) => {
-            const page = parseInt(req.query.page)
-            const size = parseInt(req.query.size)
+            try {
+                const page = parseInt(req.query.page)
+                const size = parseInt(req.query.size)
+                const searchTerm = req.query.search
+                const category = req.query.category
+                const sortBy = { addTime: -1 }
+
+                // Build query dynamically
+                const query = {}
+
+                if (searchTerm) {
+                    query.petName = { $regex: searchTerm, $options: 'i' }
+                }
+
+                if (category) {
+                    query.petCategory = category
+                }
 
 
-            const sortBy = { 'addTime': -1 }
+                const result = await petsCollection.find(query)
+                    .sort(sortBy)
+                    .skip(page * size)
+                    .limit(size)
+                    .toArray()
 
-            const result = await petsCollection.find().sort(sortBy)
-                .skip(page * size)
-                .limit(size)
-                .toArray()
-            res.send(result)
+                res.send(result)
+
+
+                // // Get total count and paginated results in parallel
+                // const [total, results] = await Promise.all([
+                //     petsCollection.countDocuments(query),
+                //     petsCollection.find(query)
+                //         .sort({ addTime: -1 })
+                //         .skip(page * size)
+                //         .limit(size)
+                //         .toArray()
+                // ])
+
+                // res.send({
+                //     total,
+                //     results,
+                //     page,
+                //     size,
+                //     totalPages: Math.ceil(total / size)
+                // })
+            } catch (error) {
+                console.error('Error fetching pets:', error)
+                res.status(500).send({
+                    error: 'Failed to fetch pets',
+                    details: error.message
+                })
+            }
+        })
+
+
+        // Get all unique pet categories
+        app.get('/pet-categories', async (req, res) => {
+            try {
+                const categories = await petsCollection.aggregate([
+                    { $group: { _id: "$petCategory" } },
+                    { $sort: { _id: 1 } }
+                ]).toArray()
+
+                const categoryList = categories.map(cat => cat._id)
+
+                res.send(categoryList)
+            } catch (error) {
+                console.error('Error fetching pet categories:', error)
+                res.status(500).send({ error: 'Failed to fetch pet categories' })
+            }
         })
 
         app.get('/pet/:id', async (req, res) => {
