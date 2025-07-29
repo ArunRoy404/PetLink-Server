@@ -46,7 +46,7 @@ async function run() {
         const usersCollection = database.collection('users')
         const petsCollection = database.collection('pets')
         const campaignsCollection = database.collection('campaigns')
-        const adoptionCollection = database.collection('adoptions')
+        const adoptionsCollection = database.collection('adoptions')
         const donationsCollections = database.collection('donations')
 
 
@@ -162,8 +162,8 @@ async function run() {
                     query.petCategory = category
                 }
 
-                if (typeof adopted !== 'undefined') {
-                    query.adopted = adopted ==='true' 
+                if (typeof adopted !== undefined && adopted !== 'undefined') {
+                    query.adopted = adopted === 'true'
                 }
 
                 const result = await petsCollection.find(query)
@@ -356,9 +356,48 @@ async function run() {
 
         app.post('/adoptions', async (req, res) => {
             const adoptionData = req.body
-            const result = adoptionCollection.insertOne(adoptionData)
+            const result = adoptionsCollection.insertOne(adoptionData)
             res.send(result)
         })
+
+        app.get('/adoptions', async (req, res) => {
+            const result = await adoptionsCollection.find().toArray()
+            res.send(result)
+        })
+
+        app.get('/adoption-requests/:email', async (req, res) => {
+            const email = req.params.email;
+
+            const result = await petsCollection.aggregate([
+                {
+                    $match: {
+                        addedBy: email
+                    }
+                },
+                {
+                    $addFields: {
+                        _idStr: { $toString: '$_id' } // convert _id to string
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'adoptions',
+                        localField: '_idStr',
+                        foreignField: 'petId',
+                        as: 'adoptionInfo'
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$adoptionInfo',
+                        preserveNullAndEmptyArrays: false // or true if you want to include pets with no requests
+                    }
+                }
+            ]).toArray();
+
+            res.send(result);
+        });
+
 
 
 
