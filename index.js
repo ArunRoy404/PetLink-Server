@@ -12,6 +12,9 @@ app.use(express.json())
 const DB_USER = process.env.DB_USER
 const DB_PASS = process.env.DB_PASS
 const FB_SERVICE_KEY = process.env.FB_SERVICE_KEY
+const STRIPE_KEY = process.env.PAYMENT_GATEWAY_KEY
+
+const stripe = require('stripe')(STRIPE_KEY)
 
 
 const decoded = Buffer.from(FB_SERVICE_KEY, 'base64').toString('utf8')
@@ -19,6 +22,7 @@ const serviceAccount = JSON.parse(decoded)
 
 
 var admin = require("firebase-admin");
+const { default: Stripe } = require('stripe');
 // var serviceAccount = require("./firebase-admin-service-key.json");
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
@@ -43,6 +47,7 @@ async function run() {
         const petsCollection = database.collection('pets')
         const campaignsCollection = database.collection('campaigns')
         const adoptionCollection = database.collection('adoptions')
+        const donationsCollections = database.collection('donations')
 
 
 
@@ -122,7 +127,7 @@ async function run() {
 
         app.post('/pets', async (req, res) => {
             const petData = req.body
-            petData.addTime = new Date()
+            petData.addTime = new Date().toISOString()
             petData.adopted = false
 
             const result = await petsCollection.insertOne(petData)
@@ -142,8 +147,7 @@ async function run() {
                 const size = parseInt(req.query.size)
                 const searchTerm = req.query.search
                 const category = req.query.category
-                // const sortBy = { addTime: -1 }
-                const sortBy = { _id: -1 }
+                const sortBy = { addTime: -1 }
 
                 // Build query dynamically
                 const query = {}
@@ -162,6 +166,8 @@ async function run() {
                     .skip(page * size)
                     .limit(size)
                     .toArray()
+
+                console.log(result);
 
                 res.send(result)
 
@@ -247,8 +253,7 @@ async function run() {
 
             const email = req.tokenUser.email
             const query = { addedBy: email }
-            // const sortBy = { 'addTime': -1 }
-            const sortBy = { _id: -1 }
+            const sortBy = { 'addTime': -1 }
 
             const result = await petsCollection.find(query).sort(sortBy)
                 .skip(page * size)
@@ -266,8 +271,8 @@ async function run() {
             const page = parseInt(req.query.page)
             const size = parseInt(req.query.size)
 
-            // const sortBy = { 'createdAt': -1 }
-            const sortBy = { _id: -1 }
+            const sortBy = { 'createdAt': -1 }
+
 
             const result = await campaignsCollection.find().sort(sortBy)
                 .skip(page * size)
@@ -310,7 +315,10 @@ async function run() {
             const email = req.tokenUser.email
             const query = { addedBy: email }
 
-            const result = await campaignsCollection.find(query)
+            const sortBy = { 'createdAt': -1 }
+
+
+            const result = await campaignsCollection.find(query).sort(sortBy)
                 .skip(page * size)
                 .limit(size)
                 .toArray()
@@ -341,6 +349,34 @@ async function run() {
             const result = adoptionCollection.insertOne(adoptionData)
             res.send(result)
         })
+
+
+
+
+
+
+
+
+
+
+
+
+        app.post('/create-payment-intent', async (req, res) => {
+            const amountInCents = req.body.amountInCents
+            try {
+                const paymentIntent = await stripe.paymentIntents.create({
+                    amount: amountInCents,
+                    currency: 'usd',
+                    payment_method_types: ['card'],
+                });
+                res.json({ clientSecret: paymentIntent.client_secret })
+            } catch (error) {
+                console.log(error.message);
+                res.status(500).json({ error: error.message })
+            }
+        })
+
+
 
 
 
