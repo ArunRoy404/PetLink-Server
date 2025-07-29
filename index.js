@@ -539,11 +539,37 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/donations', async (req, res) => {
-            const sortBy = { 'createdAt': -1 }
-            const result = await donationsCollections.find().sort(sortBy).toArray()
-            res.send(result)
-        })
+        app.get('/donations/:id', async (req, res) => {
+            try {
+                const campaignId = req.params.id
+                const matchStage = campaignId ? { campaignId } : {};
+
+                const pipeline = [
+                    { $match: matchStage },
+                    { $sort: { createdAt: -1 } },
+                    {
+                        $group: {
+                            _id: null,
+                            totalAmount: { $sum: "$amount" },
+                            donations: { $push: "$$ROOT" }
+                        }
+                    }
+                ];
+
+                const result = await donationsCollections.aggregate(pipeline).toArray();
+
+                if (result.length === 0) {
+                    return res.send({ totalAmount: 0, donations: [] });
+                }
+
+                const { totalAmount, donations } = result[0];
+                res.send({ totalAmount, donations });
+
+            } catch (error) {
+                res.status(500).send({ error: 'Failed to fetch donations' });
+            }
+        });
+
 
 
 
