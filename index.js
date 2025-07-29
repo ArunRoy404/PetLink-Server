@@ -270,11 +270,18 @@ async function run() {
         app.get('/campaigns', async (req, res) => {
             const page = parseInt(req.query.page)
             const size = parseInt(req.query.size)
+            const paused = req.query.paused
+
+
+            const query = {}
+            if(paused !== 'undefined'){
+                query.paused = paused === 'true'
+            }
 
             const sortBy = { 'createdAt': -1 }
 
 
-            const result = await campaignsCollection.find().sort(sortBy)
+            const result = await campaignsCollection.find(query).sort(sortBy)
                 .skip(page * size)
                 .limit(size)
                 .toArray()
