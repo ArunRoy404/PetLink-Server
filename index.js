@@ -147,7 +147,9 @@ async function run() {
                 const size = parseInt(req.query.size)
                 const searchTerm = req.query.search
                 const category = req.query.category
+                const adopted = req.query.adopted
                 const sortBy = { addTime: -1 }
+
 
                 // Build query dynamically
                 const query = {}
@@ -160,14 +162,15 @@ async function run() {
                     query.petCategory = category
                 }
 
+                if (typeof adopted !== 'undefined') {
+                    query.adopted = adopted ==='true' 
+                }
 
                 const result = await petsCollection.find(query)
                     .sort(sortBy)
                     .skip(page * size)
                     .limit(size)
                     .toArray()
-
-                console.log(result);
 
                 res.send(result)
 
@@ -274,7 +277,7 @@ async function run() {
 
 
             const query = {}
-            if(paused !== 'undefined'){
+            if (paused !== 'undefined') {
                 query.paused = paused === 'true'
             }
 
@@ -383,14 +386,14 @@ async function run() {
             }
         })
 
-        app.post('/donations', async(req, res)=>{
+        app.post('/donations', async (req, res) => {
             const donationData = req.body
             const result = await donationsCollections.insertOne(donationData)
             res.send(result)
         })
 
-        app.get('/donations', async(req, res)=>{
-            const sortBy = {'createdAt': -1}
+        app.get('/donations', async (req, res) => {
+            const sortBy = { 'createdAt': -1 }
             const result = await donationsCollections.find().sort(sortBy).toArray()
             res.send(result)
         })
