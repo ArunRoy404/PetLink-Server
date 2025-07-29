@@ -382,6 +382,12 @@ async function run() {
             res.send(result)
         })
 
+        app.get('/donations', async(req, res)=>{
+            const sortBy = {'createdAt': -1}
+            const result = await donationsCollections.find().sort(sortBy).toArray()
+            res.send(result)
+        })
+
 
 
 
