@@ -175,23 +175,6 @@ async function run() {
                 res.send(result)
 
 
-                // // Get total count and paginated results in parallel
-                // const [total, results] = await Promise.all([
-                //     petsCollection.countDocuments(query),
-                //     petsCollection.find(query)
-                //         .sort({ addTime: -1 })
-                //         .skip(page * size)
-                //         .limit(size)
-                //         .toArray()
-                // ])
-
-                // res.send({
-                //     total,
-                //     results,
-                //     page,
-                //     size,
-                //     totalPages: Math.ceil(total / size)
-                // })
             } catch (error) {
                 console.error('Error fetching pets:', error)
                 res.status(500).send({
@@ -271,25 +254,60 @@ async function run() {
 
 
         app.get('/campaigns', async (req, res) => {
-            const page = parseInt(req.query.page)
-            const size = parseInt(req.query.size)
-            const paused = req.query.paused
+            const page = parseInt(req.query.page) || 0;
+            const size = parseInt(req.query.size) || 10;
+            const sortBy = { createdAt: -1 };
 
+            try {
+                const campaignsWithDonations = await campaignsCollection.aggregate([
+                    { $sort: sortBy },
+                    { $skip: page * size },
+                    { $limit: size },
+                    {
+                        // Convert _id ObjectId to string to match with campaignId in donations
+                        $addFields: {
+                            _idStr: { $toString: '$_id' }
+                        }
+                    },
+                    {
+                        $lookup: {
+                            from: 'donations',
+                            let: { campaignId: '$_idStr' },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: { $eq: ['$campaignId', '$$campaignId'] }
+                                    }
+                                },
+                                {
+                                    $project: {
+                                        _id: 0,
+                                        amount: 1,
+                                        donorName: 1,
+                                        createdAt: 1
+                                    }
+                                },
+                                { $sort: { createdAt: -1 } }
+                            ],
+                            as: 'donations'
+                        }
+                    },
+                    // Optionally remove the _idStr field from output
+                    {
+                        $project: {
+                            _idStr: 0
+                        }
+                    }
+                ]).toArray();
 
-            const query = {}
-            if (paused !== 'undefined') {
-                query.paused = paused === 'true'
+                res.send(campaignsWithDonations);
+            } catch (error) {
+                console.error(error);
+                res.status(500).send({ error: 'Failed to fetch campaigns with donations' });
             }
-
-            const sortBy = { 'createdAt': -1 }
-
-
-            const result = await campaignsCollection.find(query).sort(sortBy)
-                .skip(page * size)
-                .limit(size)
-                .toArray()
-            res.send(result)
         })
+
+
 
         app.get('/campaign/:id', async (req, res) => {
             const id = req.params.id
@@ -317,33 +335,82 @@ async function run() {
             const result = await campaignsCollection.countDocuments(query)
             res.send(result)
         })
-
         app.get('/my-campaigns', verifyFirebase, async (req, res) => {
-            const page = parseInt(req.query.page)
-            const size = parseInt(req.query.size)
+            const page = parseInt(req.query.page) || 0;
+            const size = parseInt(req.query.size) || 10;
+            const email = req.tokenUser.email;
+            const query = { addedBy: email };
+            const sortBy = { createdAt: -1 };
 
-            const email = req.tokenUser.email
-            const query = { addedBy: email }
+            try {
+                const campaignsWithDonations = await campaignsCollection.aggregate([
+                    { $match: query },
+                    { $sort: sortBy },
+                    { $skip: page * size },
+                    { $limit: size },
+                    {
+                        // Convert _id ObjectId to string to match with campaignId in donations
+                        $addFields: {
+                            _idStr: { $toString: '$_id' }
+                        }
+                    },
+                    {
+                        $lookup: {
+                            from: 'donations',
+                            let: { campaignId: '$_idStr' },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: { $eq: ['$campaignId', '$$campaignId'] }
+                                    }
+                                },
+                                {
+                                    $project: {
+                                        _id: 0,
+                                        amount: 1,
+                                        donorName: 1,
+                                        createdAt: 1
+                                    }
+                                },
+                                { $sort: { createdAt: -1 } }
+                            ],
+                            as: 'donations'
+                        }
+                    },
+                    // Optionally remove the _idStr field from output
+                    {
+                        $project: {
+                            _idStr: 0
+                        }
+                    }
+                ]).toArray();
 
-            const sortBy = { 'createdAt': -1 }
+                res.send(campaignsWithDonations);
+            } catch (error) {
+                console.error(error);
+                res.status(500).send({ error: 'Failed to fetch campaigns with donations' });
+            }
+        });
 
 
-            const result = await campaignsCollection.find(query).sort(sortBy)
-                .skip(page * size)
-                .limit(size)
-                .toArray()
-            res.send(result)
-        })
-
-        app.put('/campaigns', verifyFirebase, async (req, res) => {
+        app.patch('/campaigns', verifyFirebase, async (req, res) => {
             const addedBy = req.tokenUser.email
-            const { _id, ...campaignData } = req.body.data.campaignData
+            const campaignData = req.body.data.campaignData
+            const { _id, paused } = campaignData
             const query = { _id: new ObjectId(_id), addedBy }
-            const update = { $set: campaignData }
-            const option = { upsert: true }
 
-            const result = await campaignsCollection.updateOne(query, update, option)
-            res.send(result)
+            try {
+                const result = await campaignsCollection.updateOne(
+                    query,
+                    { $set: { paused: paused } }
+                );
+                if (result.modifiedCount === 0) {
+                    return res.status(404).send({ error: 'Adoption not found or already updated' });
+                }
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ error: 'Failed to update status' });
+            }
         })
 
 
@@ -360,13 +427,42 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/adoptions', async (req, res) => {
-            const result = await adoptionsCollection.find().toArray()
+        app.get('/adoptions/:id', async (req, res) => {
+            const id = req.params.id
+            const query = {}
+            if (id !== 'all') {
+                query = { _id: new ObjectId(id) }
+            }
+            const result = await adoptionsCollection.find(query).toArray()
             res.send(result)
         })
 
-        app.get('/adoption-requests/:email', async (req, res) => {
-            const email = req.params.email;
+        app.patch('/adoptions', async (req, res) => {
+            const { updateData } = req.body.data
+            const { _id, status } = updateData
+            try {
+                const result = await adoptionsCollection.updateOne(
+                    { _id: new ObjectId(_id) },
+                    { $set: { status: status } }
+                );
+
+                if (result.modifiedCount === 0) {
+                    return res.status(404).send({ error: 'Adoption not found or already updated' });
+                }
+
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ error: 'Failed to update status' });
+            }
+
+        })
+        app.get('/adoption-requests', async (req, res) => {
+            const email = req.query.email;
+
+            // Pagination params
+            const page = parseInt(req.query.page)
+            const size = parseInt(req.query.size)
+            const skip = page * size;
 
             const result = await petsCollection.aggregate([
                 {
@@ -376,7 +472,7 @@ async function run() {
                 },
                 {
                     $addFields: {
-                        _idStr: { $toString: '$_id' } // convert _id to string
+                        _idStr: { $toString: '$_id' }
                     }
                 },
                 {
@@ -390,13 +486,25 @@ async function run() {
                 {
                     $unwind: {
                         path: '$adoptionInfo',
-                        preserveNullAndEmptyArrays: false // or true if you want to include pets with no requests
+                        preserveNullAndEmptyArrays: false
                     }
+                },
+                {
+                    $sort: {
+                        'adoptionInfo.requestDate': -1 // most recent first
+                    }
+                },
+                {
+                    $skip: skip
+                },
+                {
+                    $limit: size
                 }
             ]).toArray();
 
             res.send(result);
         });
+
 
 
 
