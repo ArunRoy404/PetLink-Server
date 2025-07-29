@@ -539,9 +539,46 @@ async function run() {
             res.send(result)
         })
 
+        app.delete('/donations', async (req, res) => {
+            const id = req.body.id
+            const query = { _id: new ObjectId(id) }
+            const result = await donationsCollections.deleteOne(query)
+            res.send(result)
+        })
+
+        app.get('/my-donations-count',verifyFirebase, async(req, res)=>{
+            const email = req.tokenUser.email;
+            const query = { donorEmail: email };
+            const result= await donationsCollections.countDocuments(query)
+            res.send(result)
+        })
+
+        app.get('/my-donations',verifyFirebase,  async (req, res) => {
+            const page = parseInt(req.query.page) || 0;
+            const size = parseInt(req.query.size) || 10;
+
+            const email = req.tokenUser.email;
+            const query = { donorEmail: email };
+            const sortBy = { createdAt: -1 };
+
+            const result = await donationsCollections
+                .find(query)
+                .sort(sortBy)
+                .skip(page * size)
+                .limit(size)
+                .toArray();
+            res.send(result)
+        });
+
+
         app.get('/donations/:id', async (req, res) => {
+            const campaignId = req.params.id
+            if (campaignId === 'all') {
+                const result = await donationsCollections.find().toArray()
+                return res.send(result)
+            }
+
             try {
-                const campaignId = req.params.id
                 const matchStage = campaignId ? { campaignId } : {};
 
                 const pipeline = [
