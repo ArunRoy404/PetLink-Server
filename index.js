@@ -68,15 +68,27 @@ async function run() {
             }
         }
 
+        const verifyAdmin = async (req, res, next) => {
+            try {
+                const email = req.tokenUser.email
+                const { role } = await usersCollection.findOne({ email })
+                if (role === 'admin') {
+                    next()
+                } else {
+                    return res.status(401).send({ message: "Unauthorized Access" })
+                }
+            }
+            catch (error) {
+                return res.status(401).send({ message: "Unauthorized Access" })
+            }
+        }
 
 
 
-
-        app.get('/users-count', verifyFirebase, async (req, res) => {
+        app.get('/users-count', verifyFirebase, verifyAdmin, async (req, res) => {
             const result = await usersCollection.estimatedDocumentCount()
             res.send(result)
         })
-
         app.get('/users/:email', async (req, res) => {
             const email = req.params.email
             const result = await usersCollection.findOne({ email })
@@ -97,7 +109,7 @@ async function run() {
             res.send(result)
         })
 
-        app.put('/users', verifyFirebase, async (req, res) => {
+        app.put('/users', verifyFirebase, verifyAdmin, async (req, res) => {
             const { _id, ...userData } = req.body.data.userData
             const query = { _id: new ObjectId(_id) }
             const update = { $set: userData }
@@ -125,7 +137,7 @@ async function run() {
 
 
 
-        app.post('/pets', async (req, res) => {
+        app.post('/pets', verifyFirebase, async (req, res) => {
             const petData = req.body
             petData.addTime = new Date().toISOString()
             petData.adopted = false
@@ -135,13 +147,13 @@ async function run() {
         })
 
 
-        app.get('/pets-count', async (req, res) => {
+        app.get('/pets-count',verifyFirebase, async (req, res) => {
             const result = await petsCollection.countDocuments()
             res.send(result)
         })
 
 
-        app.get('/pets', async (req, res) => {
+        app.get('/pets',verifyFirebase, async (req, res) => {
             try {
                 const page = parseInt(req.query.page)
                 const size = parseInt(req.query.size)
@@ -209,7 +221,7 @@ async function run() {
             res.send(result)
         })
 
-        app.delete('/pets', verifyFirebase, async (req, res) => {
+        app.delete('/pets',verifyFirebase, async (req, res) => {
             const addedBy = req.tokenUser.email
             const petId = req.body.petId
             const query = { _id: new ObjectId(petId), addedBy }
@@ -252,6 +264,56 @@ async function run() {
 
 
 
+
+        app.get('/all-campaigns', async (req, res) => {
+            const sortBy = { createdAt: -1 };
+
+            try {
+                const campaignsWithDonations = await campaignsCollection.aggregate([
+                    { $sort: sortBy },
+                    {
+                        // Convert _id ObjectId to string to match with campaignId in donations
+                        $addFields: {
+                            _idStr: { $toString: '$_id' }
+                        }
+                    },
+                    {
+                        $lookup: {
+                            from: 'donations',
+                            let: { campaignId: '$_idStr' },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: { $eq: ['$campaignId', '$$campaignId'] }
+                                    }
+                                },
+                                {
+                                    $project: {
+                                        _id: 0,
+                                        amount: 1,
+                                        donorName: 1,
+                                        createdAt: 1
+                                    }
+                                },
+                                { $sort: { createdAt: -1 } }
+                            ],
+                            as: 'donations'
+                        }
+                    },
+                    // Optionally remove the _idStr field from output
+                    {
+                        $project: {
+                            _idStr: 0
+                        }
+                    }
+                ]).toArray();
+
+                res.send(campaignsWithDonations);
+            } catch (error) {
+                console.error(error);
+                res.status(500).send({ error: 'Failed to fetch campaigns with donations' });
+            }
+        })
 
         app.get('/campaigns', async (req, res) => {
             const page = parseInt(req.query.page) || 0;
@@ -421,7 +483,7 @@ async function run() {
 
 
 
-        app.post('/adoptions', async (req, res) => {
+        app.post('/adoptions',verifyFirebase, async (req, res) => {
             const adoptionData = req.body
             const result = adoptionsCollection.insertOne(adoptionData)
             res.send(result)
@@ -437,7 +499,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch('/adoptions', async (req, res) => {
+        app.patch('/adoptions',verifyFirebase, async (req, res) => {
             const { updateData } = req.body.data
             const { _id, status } = updateData
             try {
@@ -457,7 +519,7 @@ async function run() {
 
         })
 
-        app.get('/adoption-requests-count', async (req, res) => {
+        app.get('/adoption-requests-count',verifyFirebase, async (req, res) => {
             const email = req.query.email;
 
             const countResult = await petsCollection.aggregate([
@@ -491,7 +553,7 @@ async function run() {
             res.send(total)
         })
 
-        app.get('/adoption-requests', async (req, res) => {
+        app.get('/adoption-requests',verifyFirebase, async (req, res) => {
             const email = req.query.email;
 
             // Pagination params
@@ -553,7 +615,7 @@ async function run() {
 
 
 
-        app.post('/create-payment-intent', async (req, res) => {
+        app.post('/create-payment-intent',verifyFirebase, async (req, res) => {
             const amountInCents = req.body.amountInCents
             try {
                 const paymentIntent = await stripe.paymentIntents.create({
@@ -568,13 +630,13 @@ async function run() {
             }
         })
 
-        app.post('/donations', async (req, res) => {
+        app.post('/donations',verifyFirebase, async (req, res) => {
             const donationData = req.body
             const result = await donationsCollections.insertOne(donationData)
             res.send(result)
         })
 
-        app.delete('/donations', async (req, res) => {
+        app.delete('/donations',verifyFirebase, async (req, res) => {
             const id = req.body.id
             const query = { _id: new ObjectId(id) }
             const result = await donationsCollections.deleteOne(query)
