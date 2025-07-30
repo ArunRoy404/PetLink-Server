@@ -147,13 +147,13 @@ async function run() {
         })
 
 
-        app.get('/pets-count',verifyFirebase, async (req, res) => {
+        app.get('/pets-count', async (req, res) => {
             const result = await petsCollection.countDocuments()
             res.send(result)
         })
 
 
-        app.get('/pets',verifyFirebase, async (req, res) => {
+        app.get('/pets', async (req, res) => {
             try {
                 const page = parseInt(req.query.page)
                 const size = parseInt(req.query.size)
