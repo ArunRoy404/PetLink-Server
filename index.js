@@ -72,7 +72,7 @@ async function run() {
 
 
 
-        app.get('/users-count', async (req, res) => {
+        app.get('/users-count', verifyFirebase, async (req, res) => {
             const result = await usersCollection.estimatedDocumentCount()
             res.send(result)
         })
@@ -456,12 +456,47 @@ async function run() {
             }
 
         })
+
+        app.get('/adoption-requests-count', async (req, res) => {
+            const email = req.query.email;
+
+            const countResult = await petsCollection.aggregate([
+                { $match: { addedBy: email } },
+                {
+                    $addFields: {
+                        _idStr: { $toString: '$_id' }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'adoptions',
+                        localField: '_idStr',
+                        foreignField: 'petId',
+                        as: 'adoptionInfo'
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$adoptionInfo',
+                        preserveNullAndEmptyArrays: false
+                    }
+                },
+                {
+                    $count: 'total'
+                }
+            ]).toArray();
+
+            const total = countResult[0]?.total || 0;
+
+            res.send(total)
+        })
+
         app.get('/adoption-requests', async (req, res) => {
             const email = req.query.email;
 
             // Pagination params
-            const page = parseInt(req.query.page)
-            const size = parseInt(req.query.size)
+            const page = parseInt(req.query.page) || 0
+            const size = parseInt(req.query.size) || 10
             const skip = page * size;
 
             const result = await petsCollection.aggregate([
@@ -546,14 +581,14 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/my-donations-count',verifyFirebase, async(req, res)=>{
+        app.get('/my-donations-count', verifyFirebase, async (req, res) => {
             const email = req.tokenUser.email;
             const query = { donorEmail: email };
-            const result= await donationsCollections.countDocuments(query)
+            const result = await donationsCollections.countDocuments(query)
             res.send(result)
         })
 
-        app.get('/my-donations',verifyFirebase,  async (req, res) => {
+        app.get('/my-donations', verifyFirebase, async (req, res) => {
             const page = parseInt(req.query.page) || 0;
             const size = parseInt(req.query.size) || 10;
 
