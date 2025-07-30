@@ -625,7 +625,6 @@ async function run() {
                 });
                 res.json({ clientSecret: paymentIntent.client_secret })
             } catch (error) {
-                console.log(error.message);
                 res.status(500).json({ error: error.message })
             }
         })
