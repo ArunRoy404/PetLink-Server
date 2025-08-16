@@ -519,6 +519,11 @@ async function run() {
 
         })
 
+        app.get('/all-adoptions-requests-count', async (req, res) =>{
+            const result = await adoptionsCollection.countDocuments() 
+            res.send(result)
+        })
+
         app.get('/adoption-requests-count',verifyFirebase, async (req, res) => {
             const email = req.query.email;
 
